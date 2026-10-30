@@ -38,9 +38,10 @@ private:
     walker::lfo::Lfo lfo;
 
     float sampleRate    = 44100.0f;
-    float baseDelayMs   = 15.0f;
-    float depthMs       = 3.0f;
-    float lfoRateHz     = 0.8f;
+    float baseDelayMs = 20.0f;
+    float depthMs     = 4.0f;
+    float lfoRateHz   = 0.5f;
+    float mix         = 0.5f;
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChorusProcessor)

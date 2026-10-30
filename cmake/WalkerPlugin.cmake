@@ -4,7 +4,8 @@ function(walker_add_plugin)
     # Folder name, e.g. plugins/tape_delay -> "tape_delay"
     get_filename_component(folder ${CMAKE_CURRENT_SOURCE_DIR} NAME)
 
-    # Default NAME: CamelCase folder name with Walker prefix (tape_delay -> WalkerTapeDelay)
+    # Default NAME: CamelCase folder name with Walker
+    # prefix (tape_delay -> WalkerTapeDelay)
     if(NOT ARG_NAME)
         string(REGEX REPLACE "[_-]" ";" words ${folder})
         set(camel "")
@@ -19,13 +20,13 @@ function(walker_add_plugin)
 
     # Default PRODUCT_NAME: "Walker Tape Delay"
     if(NOT ARG_PRODUCT_NAME)
-        string(REGEX REPLACE "([a-z])([A-Z])" "\\1 \\2" spaced ${ARG_NAME})
-        set(ARG_PRODUCT_NAME "${spaced}")
+        set(ARG_PRODUCT_NAME "${ARG_NAME}")
     endif()
 
     # Plugin codes must be unique, so require them explicitly
     if(NOT ARG_PLUGIN_CODE)
-        message(FATAL_ERROR "walker_add_plugin(${ARG_NAME}): PLUGIN_CODE is required (4 chars, unique per plugin)")
+        message(FATAL_ERROR "walker_add_plugin(${ARG_NAME}): 
+                PLUGIN_CODE is required (4 chars, unique per plugin)")
     endif()
 
     juce_add_plugin(${ARG_NAME}

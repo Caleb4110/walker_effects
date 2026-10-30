@@ -28,7 +28,7 @@ void ChorusProcessor::prepareToPlay (double newSampleRate, int)
     sampleRate = static_cast<float> (newSampleRate);
 
     for (auto& dl : delayLines)
-        dl.Init (sampleRate, 0.1f);
+        dl.Init (sampleRate, 1.0f);
 
     lfo.Init (sampleRate);
     lfo.SetFrequency (lfoRateHz);
@@ -46,7 +46,7 @@ void ChorusProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 
     for (int i = 0; i < numSamples; ++i)
     {
-        const float mod   = lfo.Next();             // -1..1
+        const float mod   = lfo.NextTri();             // -1..1
         const float delay = baseDelay + depth * mod;
 
         for (int ch = 0; ch < numChannels; ++ch)
@@ -56,7 +56,8 @@ void ChorusProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
             const float dry = data[i];
             delayLines[ch].SetDelay(delay);
             const float wet = delayLines[ch].Process(data[i]);
-            data[i] = dry * (1.0f - 0.5f) + wet * 0.5;
+
+            data[i] = (dry * (1.0f - mix)) + (wet * mix);
         }
     }
 }

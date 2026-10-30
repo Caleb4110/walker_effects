@@ -11,5 +11,6 @@ public:
     void Init(float _sampleRate);
     void SetFrequency(float hz);
     float Next();
+    float NextTri();
 };
 }
