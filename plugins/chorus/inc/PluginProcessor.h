@@ -34,8 +34,8 @@ public:
     juce::AudioProcessorValueTreeState apvts;
 
 private:
-    std::array<walker::delay_line::DelayLine, 2> delayLines;
-    walker::lfo::Lfo lfo;
+    std::array<std::array<walker::delay_line::DelayLine, 2>, 2> delayLines; // 3 delay lines for each channel
+    std::array<walker::lfo::Lfo, 2> lfos; // 5 individual lfos for each pair of delay lines
 
     float sampleRate    = 44100.0f;
     float baseDelayMs = 20.0f;
@@ -43,6 +43,6 @@ private:
     float lfoRateHz   = 0.5f;
     float mix         = 0.5f;
 
-    static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
+    static juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChorusProcessor)
 };

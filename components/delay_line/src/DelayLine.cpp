@@ -8,7 +8,7 @@ void DelayLine::Init(float _sampleRate, float maxDelaySeconds)
 {
     sampleRate = _sampleRate;
 
-    int needed = static_cast<int>(maxDelaySeconds * sampleRate) + 4; // a little headroom for the 4-point read
+    int needed = static_cast<int>(maxDelaySeconds * sampleRate); // a little headroom for the 4-point read
     int size = 1;
     while (size < needed) size <<= 1;
 

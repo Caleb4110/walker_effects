@@ -11,8 +11,10 @@ void Lfo::Init(float _sampleRate)
 
 void Lfo::SetFrequency(float hz) { phaseInc = hz / sampleRate; }
 
+void Lfo::SetPhase(float newPhase) { phase = newPhase; }
+
 // returns -1..1, call once per sample
-float Lfo::Next()
+float Lfo::NextSin()
 {
     float twoPi = 6.28318530718f;
     const float out = std::sin(twoPi * phase);

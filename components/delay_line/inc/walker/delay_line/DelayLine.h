@@ -10,7 +10,7 @@ private:
     std::vector<float>  delayBuffer;
     int                 mask            = 0;    // delayBuffer.size() - 1 (power of two)
     int                 writeIdx        = 0;
-    int                 delayInSamples  = 0;
+    float               delayInSamples  = 0;
     float               sampleRate      = 0.0f;
 public:
     void    Init(float _sampleRate, float _maxDelaySeconds);

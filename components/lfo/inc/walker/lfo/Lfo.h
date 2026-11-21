@@ -10,7 +10,8 @@ private:
 public:
     void Init(float _sampleRate);
     void SetFrequency(float hz);
-    float Next();
+    void SetPhase(float newPhase);
+    float NextSin();
     float NextTri();
 };
 }
