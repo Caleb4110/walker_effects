@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "juce_audio_processors_headless/juce_audio_processors_headless.h"
 #include "juce_core/juce_core.h"
+#include <array>
 #include <random>
 
 float random_f(float min, float max) {
@@ -15,14 +16,27 @@ ChorusProcessor::ChorusProcessor()
           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "PARAMS", createParameters())
 {
+    baseDelayMs = apvts.getRawParameterValue("delayms");
+    depthMs     = apvts.getRawParameterValue("depthms");
+    lfoRateHz   = apvts.getRawParameterValue("ratehz");
+    rawLayers   = apvts.getRawParameterValue("layers"); // is an int, but raw is float
+    mix         = apvts.getRawParameterValue("mix");
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout ChorusProcessor::createParameters()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
     layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "delayms", 1 }, "Delay (ms)",
+        juce::NormalisableRange<float> (10.f, 30.f, 0.1f), 15.f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "depthms", 1 }, "Depth",
+        juce::NormalisableRange<float> (1.f, 5.f, 0.1f), 2.f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { "ratehz", 1 }, "Rate (hz)",
-        juce::NormalisableRange<float> (0.3f, 1.5f, 0.1f), 0.3f));
+        juce::NormalisableRange<float> (0.1f, 3.f, 0.1f), 1.f));
 
     layout.add(std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { "mix", 1 }, "Mix",
@@ -57,9 +71,8 @@ void ChorusProcessor::prepareToPlay (double newSampleRate, int)
     for (size_t j = 0; j < lfos.size(); ++j)
     {
         lfos[j].Init (sampleRate);
-        const float detune = 1.f + 0.15f * random_f (-1.f, 1.f);   // ±15% rate
-        lfos[j].SetFrequency (lfoRateHz * detune);
         lfos[j].SetPhase ((float) j / (float) lfos.size());        // 0, 1/3, 2/3
+        lfoDetunes[j] = 1.f + 0.15f * random_f (-1.f, 1.f);   // ±15% rate
     }
 }
 
@@ -67,18 +80,28 @@ void ChorusProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 {
     juce::ScopedNoDenormals noDenormals;
 
-    const int numSamples  = buffer.getNumSamples();
-    const int numChannels = buffer.getNumChannels();
+    const int numSamples    = buffer.getNumSamples();
+    const int numChannels   = buffer.getNumChannels();
 
-    const float baseDelay = baseDelayMs * 0.001f * sampleRate;  // samples
-    const float depth     = depthMs     * 0.001f * sampleRate;  // samples
+    const float baseDelay   = baseDelayMs->load() * 0.001f * sampleRate; // in samples
+    const float depth       = depthMs->load()     * 0.001f * sampleRate; // in samples
+    const float mixVal      = mix->load();
 
-    for (size_t i = 0; i < numSamples; ++i)
+    const int maxLayers     = (int) juce::jmin(lfos.size(), delayLines[0].size());
+    const int layers        = juce::jlimit(1, maxLayers, juce::roundToInt(rawLayers->load()));
+
+    // Update LFO rates
+    for (int j = 0; j < layers; ++j)
+    {
+        lfos[(size_t)j].SetFrequency (lfoRateHz->load() * lfoDetunes[(size_t)j]);
+    }
+
+    std::array<float, 16> mod {}; // NOTE: Must be >= maxLayers
+    for (int i = 0; i < numSamples; ++i)
     {
         // Advance each LFO once per sample
-        std::array<float, 7> mod;
-        for (size_t j = 0; j < lfos.size(); ++j)
-            mod[j] = lfos[j].NextSin();
+        for (int j = 0; j < layers; ++j)
+            mod[(size_t)j] = lfos[(size_t)j].NextSin();
 
         for (int ch = 0; ch < numChannels; ++ch)
         {
@@ -88,13 +111,15 @@ void ChorusProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
             const float dry = data[i];
             float allWet = 0.f;
 
-            for (size_t j = 0; j < delayLines[ch].size(); j++)
+            for (int j = 0; j < layers; j++)
             {
-                delayLines[ch][j].SetDelay(baseDelay + depth * sign * mod[j]);
-                allWet += delayLines[ch][j].Process(dry);
+                auto& dl = delayLines[(size_t)ch][(size_t)j];
+                dl.SetDelay(baseDelay + depth * sign * mod[(size_t)j]);
+                allWet += dl.Process(dry);
             }
-            allWet /= (float)delayLines[ch].size();
-            data[i] = (dry * (1.0f - mix)) + (allWet * mix);
+
+            allWet /= (float) layers; // Normalise to number of layers
+            data[i] = (dry * (1.f - mixVal)) + (allWet * mixVal);
         }
     }
 }

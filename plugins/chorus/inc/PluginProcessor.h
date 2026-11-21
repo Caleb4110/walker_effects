@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <atomic>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <walker/delay_line/DelayLine.h>
 #include <walker/lfo/Lfo.h>
@@ -34,14 +35,17 @@ public:
     juce::AudioProcessorValueTreeState apvts;
 
 private:
-    std::array<std::array<walker::delay_line::DelayLine, 2>, 2> delayLines; // 3 delay lines for each channel
-    std::array<walker::lfo::Lfo, 2> lfos; // 5 individual lfos for each pair of delay lines
+    std::array<std::array<walker::delay_line::DelayLine, 5>, 2>     delayLines; // 3 delay lines for each channel
+    std::array<walker::lfo::Lfo, 5>                                 lfos; // 5 individual lfos for each pair of delay lines
+    std::array<float, 5>                                            lfoDetunes;
 
     float sampleRate    = 44100.0f;
-    float baseDelayMs = 20.0f;
-    float depthMs     = 4.0f;
-    float lfoRateHz   = 0.5f;
-    float mix         = 0.5f;
+
+    std::atomic<float>* baseDelayMs = nullptr; // 20.0f initial
+    std::atomic<float>* depthMs     = nullptr; // 4.0f initial
+    std::atomic<float>* lfoRateHz   = nullptr; // 0.5f initial
+    std::atomic<float>* rawLayers   = nullptr; // 1    initial
+    std::atomic<float>* mix         = nullptr; // 0.5f initial
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChorusProcessor)
