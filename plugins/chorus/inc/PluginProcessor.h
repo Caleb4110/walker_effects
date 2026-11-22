@@ -1,4 +1,5 @@
 #pragma once
+#include "juce_audio_basics/juce_audio_basics.h"
 #include <array>
 #include <atomic>
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -41,11 +42,19 @@ private:
 
     float sampleRate    = 44100.0f;
 
+    // APVTS values
     std::atomic<float>* baseDelayMs = nullptr; // 20.0f initial
     std::atomic<float>* depthMs     = nullptr; // 4.0f initial
     std::atomic<float>* lfoRateHz   = nullptr; // 0.5f initial
     std::atomic<float>* rawLayers   = nullptr; // 1    initial
     std::atomic<float>* mix         = nullptr; // 0.5f initial
+
+    // Smoothed values - These are what we use in code to avoid pops
+    //                   and crackles when changing values
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>           sBaseDelayMs;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>           sDepthMs;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative>   sLfoRateMs;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>           sMix;
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChorusProcessor)

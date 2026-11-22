@@ -31,7 +31,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout ChorusProcessor::createParam
         juce::NormalisableRange<float> (10.f, 30.f, 0.1f), 15.f));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { "depthms", 1 }, "Depth",
+        juce::ParameterID { "depthms", 1 }, "Depth (ms)",
         juce::NormalisableRange<float> (1.f, 5.f, 0.1f), 2.f));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
@@ -58,22 +58,34 @@ void ChorusProcessor::prepareToPlay (double newSampleRate, int)
 {
     sampleRate = static_cast<float> (newSampleRate);
 
-    for (auto& dl : delayLines[0])
+    // Initialse L & R delay lines
+    for (size_t i = 0; i < delayLines.size(); i++)
     {
-        dl.Init (sampleRate, 1.0f);
+        for (auto& dl : delayLines[i])
+        {
+            dl.Init (sampleRate, 1.0f);
+        }
     }
 
-    for (auto& dl : delayLines[1])
-    {
-        dl.Init (sampleRate, 1.0f);
-    }
-
+    // Init the lfos - spread phases equally and randomise rate
     for (size_t j = 0; j < lfos.size(); ++j)
     {
         lfos[j].Init (sampleRate);
-        lfos[j].SetPhase ((float) j / (float) lfos.size());        // 0, 1/3, 2/3
-        lfoDetunes[j] = 1.f + 0.15f * random_f (-1.f, 1.f);   // ±15% rate
+        lfos[j].SetPhase ((float) j / (float) lfos.size()); // Evenly spaced phases (1/n, 2/n, 3/n, ...)
+        lfoDetunes[j] = 1.f + 0.15f * random_f (-1.f, 1.f); // ±15% rate
     }
+
+    // Reset smoothed values and set ramp time (s)
+    sBaseDelayMs.reset (newSampleRate, 0.08);
+    sDepthMs    .reset (newSampleRate, 0.05);
+    sLfoRateMs  .reset (newSampleRate, 0.03);
+    sMix        .reset (newSampleRate, 0.05);
+
+    // Set the smoothed value's targets
+    sBaseDelayMs.setCurrentAndTargetValue (baseDelayMs->load());
+    sDepthMs    .setCurrentAndTargetValue (depthMs->load());
+    sLfoRateMs  .setCurrentAndTargetValue (lfoRateHz->load());
+    sMix        .setCurrentAndTargetValue (mix->load());
 }
 
 void ChorusProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
@@ -83,25 +95,33 @@ void ChorusProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     const int numSamples    = buffer.getNumSamples();
     const int numChannels   = buffer.getNumChannels();
 
-    const float baseDelay   = baseDelayMs->load() * 0.001f * sampleRate; // in samples
-    const float depth       = depthMs->load()     * 0.001f * sampleRate; // in samples
-    const float mixVal      = mix->load();
+    // Update target values
+    sBaseDelayMs.setTargetValue(baseDelayMs->load());
+    sDepthMs    .setTargetValue(depthMs->load());
+    sLfoRateMs  .setTargetValue(lfoRateHz->load());
+    sMix        .setTargetValue(mix->load());
+
 
     const int maxLayers     = (int) juce::jmin(lfos.size(), delayLines[0].size());
     const int layers        = juce::jlimit(1, maxLayers, juce::roundToInt(rawLayers->load()));
 
-    // Update LFO rates
-    for (int j = 0; j < layers; ++j)
-    {
-        lfos[(size_t)j].SetFrequency (lfoRateHz->load() * lfoDetunes[(size_t)j]);
-    }
 
     std::array<float, 16> mod {}; // NOTE: Must be >= maxLayers
     for (int i = 0; i < numSamples; ++i)
     {
-        // Advance each LFO once per sample
+        // Get the next smoothed value per-sample
+        const float baseDelay  = sBaseDelayMs.getNextValue() * 0.001f * sampleRate; // In samples
+        const float depth      = sDepthMs    .getNextValue() * 0.001f * sampleRate; // In samples
+        const float rawRate    = sLfoRateMs  .getNextValue();
+        const float rawMix     = sMix        .getNextValue();
+
+        // Update LFO rates per-sample since rate is smoothed
+        // And advance each LFO once per sample
         for (int j = 0; j < layers; ++j)
+        {
+            lfos[(size_t)j].SetFrequency (rawRate * lfoDetunes[(size_t)j]);
             mod[(size_t)j] = lfos[(size_t)j].NextSin();
+        }
 
         for (int ch = 0; ch < numChannels; ++ch)
         {
@@ -119,7 +139,7 @@ void ChorusProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
             }
 
             allWet /= (float) layers; // Normalise to number of layers
-            data[i] = (dry * (1.f - mixVal)) + (allWet * mixVal);
+            data[i] = (dry * (1.f - rawMix)) + (allWet * rawMix);
         }
     }
 }
