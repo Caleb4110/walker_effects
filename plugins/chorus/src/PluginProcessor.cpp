@@ -106,7 +106,7 @@ void ChorusProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     const int layers        = juce::jlimit(1, maxLayers, juce::roundToInt(rawLayers->load()));
 
 
-    std::array<float, 16> mod {}; // NOTE: Must be >= maxLayers
+    std::array<float, 12> mod {}; // NOTE: Must be >= maxLayers
     for (int i = 0; i < numSamples; ++i)
     {
         // Get the next smoothed value per-sample
