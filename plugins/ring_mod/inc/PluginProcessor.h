@@ -1,5 +1,6 @@
 #pragma once
 #include "juce_audio_basics/juce_audio_basics.h"
+#include "juce_dsp/juce_dsp.h"
 #include <array>
 #include <atomic>
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -41,14 +42,17 @@ private:
     float sampleRate    = 44100.0f;
 
     // APVTS values
-    std::atomic<float>* carrierRateMs   = nullptr; // 20.0f initial
+    std::atomic<float>* carrierRateHz   = nullptr; // 20.0f initial
     std::atomic<float>* mix             = nullptr;
 
     // Smoothed values - These are what we use in code to avoid pops
     //                   and crackles when changing values
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative>   sCarrierRateMs;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative>   sCarrierRateHz;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>           sMix;
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
+    juce::dsp::Oversampling<float> oversampler {
+        2, 2, juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR, true
+    };
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (RingModProcessor)
 };
